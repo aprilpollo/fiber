@@ -1,0 +1,109 @@
+name: aprilpollo
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: aprilpollo-app
+    ports:
+      - "${API_PORT:-8760}:${API_PORT:-8760}"
+  
+    env_file:
+      - ../.env
+    volumes:
+      - ../logs:/app/logs
+      - ../static:/app/static
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # redis:
+      #   condition: service_started
+      # rabbitmq:
+      #   condition: service_healthy
+    networks:
+      - aprilpollo-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: aprilpollo-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=aprilpollo
+      - POSTGRES_PASSWORD=apl9921
+      - POSTGRES_DB=aprilpollo
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aprilpollo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aprilpollo -d aprilpollo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # redis:
+  #   image: redis:7.2-alpine
+  #   container_name: aprilpollo-redis
+  #   ports:
+  #     - "6379:6379"
+  #   command: redis-server --appendonly yes --requirepass redis123
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - aprilpollo-network
+  #   restart: unless-stopped
+
+  # rabbitmq:
+  #   image: rabbitmq:3.12-management
+  #   container_name: aprilpollo-rabbitmq
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
+  #   environment:
+  #     - RABBITMQ_DEFAULT_USER=admin
+  #     - RABBITMQ_DEFAULT_PASS=password123
+  #   volumes:
+  #     - rabbitmq_data:/var/lib/rabbitmq
+  #   networks:
+  #     - aprilpollo-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "rabbitmq-diagnostics", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 15s
+
+  # queue-worker:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/Dockerfile
+  #   container_name: aprilpollo-queue
+  #   environment:
+  #     - APP_ENV=production
+  #     - APP_MODE=QUEUE
+  #   env_file:
+  #     - ../.env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   networks:
+  #     - aprilpollo-network
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+  # redis_data:
+  # rabbitmq_data:
+
+networks:
+  aprilpollo-network:
+    driver: bridge
