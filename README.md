@@ -207,7 +207,7 @@ Logs are automatically rotated and stored in the `logs/` directory:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+[MIT License](https://mit-license.org)
 
 ## 👤 Author
 
