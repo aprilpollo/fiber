@@ -10,27 +10,6 @@ type ModelList []interface{}
 func All() ModelList {
 	return ModelList{
 		&User{},
-		&UserAuthMethod{},
-		&UserPreference{},
-		&Organization{},
-		&OrganizationMember{},
-		&OrganizationStatus{},
-		&MemberStatus{},
-		&OrganizationMemberRole{},
-		&Project{},
-		&ProjectMember{},
-		&ProjectStatus{},
-		&ProjectMemberRole{},
-		&Ticket{},
-		&TicketStatus{},
-		&TicketComment{},
-		&TicketAttachment{},
-		&Label{},
-		&TimeLog{},
-		&Priority{},
-		&TicketType{},
-		&Component{},
-		&Resolution{},
 	}
 }
 
