@@ -75,7 +75,6 @@ JWT_SIGNING_METHOD=HS256
 
 # PostgreSQL Database
 POSTGRE_URI=postgresql://aprilpollo:apl9921@localhost:5432/aprilpollo?sslmode=disable
-POSTGRE_URI_SCRIPT=postgresql://aprilpollo:apl9921@localhost:5432/aprilpollo?sslmode=disable
 POSTGRE_MAX_IDLE_CONNS=10
 POSTGRE_MAX_OPEN_CONNS=100
 POSTGRE_CONN_MAX_LIFETIME=0

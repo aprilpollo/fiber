@@ -9,8 +9,8 @@ import (
 	gormOrm "aprilpollo/internal/adapter/storage/gorm"
 	"aprilpollo/internal/adapter/storage/gorm/models"
 	"aprilpollo/internal/adapter/storage/gorm/views"
-
 	"github.com/fatih/color"
+	"gorm.io/gorm"
 )
 
 
@@ -44,7 +44,7 @@ func main() {
 	}
 
 	printInfo("Connecting to database...")
-	db, err := gormOrm.NewGormDB(config.Database, nil)
+	db, err := gormOrm.NewGormDB(config.Database, &gorm.Config{})
 	if err != nil {
 		log.Fatalf("%s failed to connect DB: %v", red("[x]"), err)
 	}
