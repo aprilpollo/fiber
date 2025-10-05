@@ -1,15 +1,21 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
-type ModelList []interface{}
+type TableNamer interface {
+	TableName() string
+}
+
+type ModelList []TableNamer
 
 func All() ModelList {
 	return ModelList{
 		&User{},
+		&UserRole{},
 	}
 }
 

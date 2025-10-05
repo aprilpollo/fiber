@@ -3,9 +3,9 @@ module aprilpollo
 go 1.24.0
 
 require (
-	github.com/fatih/color v1.18.0
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/jedib0t/go-pretty/v6 v6.6.8
 	github.com/joho/godotenv v1.5.1
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	gorm.io/driver/postgres v1.6.0
@@ -32,7 +32,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect

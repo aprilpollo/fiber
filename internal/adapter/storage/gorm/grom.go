@@ -48,6 +48,6 @@ func (g *GormDB) Close() error {
 	return sqlDB.Close()
 }
 
-func (g *GormDB) Migrate(dsls ...interface{}) error {
-	return g.db.AutoMigrate(dsls...)
+func (g *GormDB) Migrate(dsls interface{}) error {
+	return g.db.AutoMigrate(dsls)
 }
