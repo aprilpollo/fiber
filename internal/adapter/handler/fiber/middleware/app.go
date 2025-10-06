@@ -38,7 +38,9 @@ func (m *MiddlewareApp) SetupGlobalMiddleware() {
 
 	if m.appConfig.Development {
 		m.app.Use(logger.New(logger.Config{
-			Format: "[${time}] [${ip}] [${method} ${status}] - ${path}\n",
+			//Format:     "${time} | ${status} | ${ip} | ${method} \"${path}\"\n",
+			TimeFormat: "2006/01/02 - 15:04:05",
+			TimeZone:   "Asia/Bangkok",
 		}))
 	} else {
 		multi, err := util.RotateLogs()
@@ -47,8 +49,10 @@ func (m *MiddlewareApp) SetupGlobalMiddleware() {
 		}
 
 		m.app.Use(logger.New(logger.Config{
-			Format: "[${time}] [${ip}] [${method} ${status}] - ${path}\n",
-			Output: multi,
+			//Format:     "${time} | ${status} | ${ip} | ${method} \"${path}\"\n",
+			TimeFormat: "2006/01/02 - 15:04:05",
+			TimeZone:   "Asia/Bangkok",
+			Output:     multi,
 		}))
 	}
 
