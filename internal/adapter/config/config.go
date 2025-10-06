@@ -22,6 +22,7 @@ type (
 		AllowedCredentialOrigins string
 		LogLevel                 string
 		Development              bool
+		TimeZone                 string
 	}
 
 	JWT struct {
@@ -56,6 +57,7 @@ func GetConfig() (*Config, error) {
 		AllowedCredentialOrigins: os.Getenv("ALLOWED_CREDENTIAL_ORIGINS"),
 		LogLevel:                 os.Getenv("LOG_LEVEL"),
 		Development:              os.Getenv("APP_MODE") == "development",
+		TimeZone:                 os.Getenv("TIME_ZONE"),
 	}
 
 	jwt := &JWT{
