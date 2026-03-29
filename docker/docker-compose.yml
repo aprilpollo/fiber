@@ -1,0 +1,67 @@
+name: aprilpollo
+services:
+  app:
+    container_name: app
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - 3000:3000
+    environment:
+      - APP_MODE=production
+    env_file:
+      - path: ../.env
+        required: false
+    networks:
+      - aprilpollo-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aprilpollo-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=aprilpollo
+      - POSTGRES_PASSWORD=aprilpollo
+      - POSTGRES_DB=aprilpollo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aprilpollo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aprilpollo -d aprilpollo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: aprilpollo-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aprilpollo-network
+    restart: unless-stopped
+
+networks:
+  aprilpollo-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
