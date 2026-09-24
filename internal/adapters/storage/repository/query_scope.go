@@ -1,18 +1,23 @@
-package query
+package repository
 
 import (
 	"fmt"
 	"strings"
 
+	"aprilpollo/internal/pkg/query"
+
 	"gorm.io/gorm"
 )
 
-// ApplyToGorm chains filters, sort, limit, offset onto a *gorm.DB scope.
+// applyQuery chains filters, sort, limit, offset onto a *gorm.DB scope.
 // The caller is responsible for calling .Find(), .Scan(), etc. afterward.
 //
-//	db := querybuilder.ApplyToGorm(db.Model(&User{}), opts)
+// It lives here rather than in pkg/query so that package stays free of GORM:
+// the core imports pkg/query, and the core must not depend on infrastructure.
+//
+//	db := applyQuery(db.Model(&UserModel{}), opts)
 //	db.Find(&users)
-func ApplyToGorm(db *gorm.DB, opts QueryOptions) *gorm.DB {
+func applyQuery(db *gorm.DB, opts query.QueryOptions) *gorm.DB {
 	for _, f := range opts.Filters {
 		db = applyFilter(db, f)
 	}
@@ -35,8 +40,8 @@ func ApplyToGorm(db *gorm.DB, opts QueryOptions) *gorm.DB {
 	return db
 }
 
-func applyFilter(db *gorm.DB, f Filter) *gorm.DB {
-	col := f.Field // already validated as safe identifier in ParseFilters
+func applyFilter(db *gorm.DB, f query.Filter) *gorm.DB {
+	col := f.Field // already validated as a safe identifier by query.ParseFilters
 
 	switch f.Operator {
 	case "IS NULL":

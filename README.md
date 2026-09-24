@@ -24,8 +24,8 @@ fiber/
 │   │   │   ├── input/       # Input ports (use cases)
 │   │   │   └── output/      # Output ports (repositories)
 │   │   └── services/        # Business services
-│   └── pkg/                 # Shared utilities
-│       └── query/           # Query building and filtering
+│   └── pkg/                 # Shared utilities (stdlib only — no framework/ORM)
+│       └── query/           # Query parsing and filtering
 ├── docker/                  # Docker configuration
 ├── script/                  # Utility scripts
 ├── go.mod                   # Go module definition
@@ -102,11 +102,14 @@ The API supports advanced filtering, sorting, and pagination through query param
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `_limit` | Number of records per page | `_limit=10` |
+| `_limit` | Records per page (1–200, default 20) | `_limit=10` |
 | `_offset` | Number of records to skip | `_offset=20` |
-| `_page` | Page number (alternative to offset) | `_page=3` |
+| `_page` | Page number (overrides `_offset`) | `_page=3` |
 | `_sort` | Column to sort by | `_sort=name` |
 | `_order` | Sort direction: ASC or DESC | `_order=DESC` |
+
+A malformed reserved parameter is rejected with `400 BAD_REQUEST` rather than
+silently falling back to its default — e.g. `?_limit=abc` or `?_limit=999999999`.
 
 ### Filter Operators
 

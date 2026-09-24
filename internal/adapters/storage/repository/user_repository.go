@@ -30,7 +30,7 @@ func (r *userRepository) FindAll(ctx context.Context, opts query.QueryOptions) (
 		return nil, 0, err
 	}
 
-	if err := query.ApplyToGorm(r.db.WithContext(ctx).Model(&models.UserModel{}), opts).Find(&rows).Error; err != nil {
+	if err := applyQuery(r.db.WithContext(ctx).Model(&models.UserModel{}), opts).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
 
