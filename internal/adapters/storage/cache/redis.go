@@ -30,6 +30,10 @@ func (r *RedisClient) GetClient() *redis.Client {
 	return r.client
 }
 
+func (r *RedisClient) Ping(ctx context.Context) error {
+	return r.client.Ping(ctx).Err()
+}
+
 func (r *RedisClient) Close() error {
 	return r.client.Close()
 }

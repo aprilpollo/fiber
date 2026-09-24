@@ -51,6 +51,10 @@ This project implements **Hexagonal Architecture** (also known as Ports & Adapte
 - ✅ GORM ORM for database operations
 - ✅ Redis caching support
 - ✅ Query filtering and pagination
+- ✅ Request validation (`validate` tags via Fiber v3 `StructValidator`)
+- ✅ Request ID, CORS and rate limiting middleware
+- ✅ Health probes: `/livez` (liveness) and `/readyz` (DB + Redis readiness)
+- ✅ Graceful shutdown
 - ✅ Docker support
 - ✅ Environment-based configuration
 

@@ -32,7 +32,10 @@ func (h *UserHandler) Gets(c fiber.Ctx) error {
 
 // GET /api/v1/users/:id
 func (h *UserHandler) GetByID(c fiber.Ctx) error {
-	id := c.Params("id")
+	id, err := bindID(c)
+	if err != nil {
+		return ResError(c, fiber.StatusBadRequest, "BAD_REQUEST", err.Error())
+	}
 
 	user, err := h.svc.GetByID(c.Context(), id)
 	if err != nil {
@@ -62,7 +65,10 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 
 // PUT /api/v1/users/:id
 func (h *UserHandler) Update(c fiber.Ctx) error {
-	id := c.Params("id")
+	id, err := bindID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
 
 	existing, err := h.svc.GetByID(c.Context(), id)
 	if err != nil {
@@ -85,7 +91,10 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 
 // DELETE /api/v1/users/:id
 func (h *UserHandler) Delete(c fiber.Ctx) error {
-	id := c.Params("id")
+	id, err := bindID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
 
 	if err := h.svc.Delete(c.Context(), id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
