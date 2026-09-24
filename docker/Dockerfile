@@ -6,7 +6,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o server ./cmd/main.go
+# CGO_ENABLED=0 keeps the binary statically linked; -s -w drops the debug
+# symbol table and DWARF data, which cuts roughly 30% off the image.
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o server ./cmd/main.go
 
 
 FROM alpine:3.24
