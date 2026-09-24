@@ -2,13 +2,25 @@ package query
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
 
-const defaultLimit = 20
+const (
+	defaultLimit = 20
 
-// Parse builds a QueryOptions from Fiber query params (map[string]string via c.Queries())
+	// MaxLimit caps _limit so one request cannot ask the database for an
+	// unbounded number of rows (?_limit=999999999 would otherwise be passed
+	// straight through to SQL).
+	MaxLimit = 200
+)
+
+// Parse builds a QueryOptions from query params (map[string]string, e.g. Fiber's c.Queries()).
+//
+// Malformed reserved params are rejected instead of being silently ignored, so a
+// typo like ?_limit=abc surfaces as a 400 rather than quietly falling back to the
+// default page size.
 func Parse(table string, params map[string]string) (QueryOptions, error) {
 	if !isValidIdentifier(table) {
 		return QueryOptions{}, fmt.Errorf("invalid table name: %q", table)
@@ -27,27 +39,59 @@ func Parse(table string, params map[string]string) (QueryOptions, error) {
 		Order:   "ASC",
 	}
 
-	if v, ok := params["_sort"]; ok && isValidIdentifier(v) {
+	if v, ok := params["_sort"]; ok {
+		if !isValidIdentifier(v) {
+			return QueryOptions{}, fmt.Errorf("_sort: invalid column name %q", v)
+		}
 		opts.Sort = v
 	}
-	if v := strings.ToUpper(params["_order"]); v == "DESC" {
-		opts.Order = "DESC"
+
+	if v, ok := params["_order"]; ok {
+		switch strings.ToUpper(v) {
+		case "ASC":
+			opts.Order = "ASC"
+		case "DESC":
+			opts.Order = "DESC"
+		default:
+			return QueryOptions{}, fmt.Errorf("_order: must be ASC or DESC, got %q", v)
+		}
 	}
+
 	if v, ok := params["_limit"]; ok {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			opts.Limit = n
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return QueryOptions{}, fmt.Errorf("_limit: must be an integer, got %q", v)
 		}
+		if n < 1 || n > MaxLimit {
+			return QueryOptions{}, fmt.Errorf("_limit: must be between 1 and %d, got %d", MaxLimit, n)
+		}
+		opts.Limit = n
 	}
+
 	if v, ok := params["_offset"]; ok {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			opts.Offset = n
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return QueryOptions{}, fmt.Errorf("_offset: must be an integer, got %q", v)
 		}
+		if n < 0 {
+			return QueryOptions{}, fmt.Errorf("_offset: must not be negative, got %d", n)
+		}
+		opts.Offset = n
 	}
-	// _page overrides _offset
+
+	// _page overrides _offset. Resolved after _limit so it uses the final page size.
 	if v, ok := params["_page"]; ok {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
-			opts.Offset = (n - 1) * opts.Limit
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return QueryOptions{}, fmt.Errorf("_page: must be an integer, got %q", v)
 		}
+		if n < 1 {
+			return QueryOptions{}, fmt.Errorf("_page: must be 1 or greater, got %d", n)
+		}
+		if n-1 > math.MaxInt/opts.Limit {
+			return QueryOptions{}, fmt.Errorf("_page: %d is too large", n)
+		}
+		opts.Offset = (n - 1) * opts.Limit
 	}
 
 	return opts, nil

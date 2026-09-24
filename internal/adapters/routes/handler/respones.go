@@ -4,17 +4,16 @@ import (
 	"aprilpollo/internal/pkg/query"
 	"reflect"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
-func ResOk(ctx *fiber.Ctx, status int, payload any, total *int64, opts *query.QueryOptions) error {
+func ResOk(ctx fiber.Ctx, status int, payload any, total *int64, opts *query.QueryOptions) error {
 	if total != nil && opts != nil {
 		page := uint(1)
 		if opts.Limit > 0 {
 			page = uint((opts.Offset / opts.Limit) + 1)
 		}
 
-		
 		count := 0
 		if v := reflect.ValueOf(payload); v.Kind() == reflect.Slice {
 			count = v.Len()
@@ -44,7 +43,7 @@ func ResOk(ctx *fiber.Ctx, status int, payload any, total *int64, opts *query.Qu
 	return ctx.Status(status).JSON(rsp)
 }
 
-func ResError(ctx *fiber.Ctx, status int, message string, errorText string) error {
+func ResError(ctx fiber.Ctx, status int, message string, errorText string) error {
 	rsp := fiber.Map{
 		"code":    status,
 		"message": message,

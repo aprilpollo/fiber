@@ -2,6 +2,7 @@ package orm
 
 import (
 	"aprilpollo/internal/adapters/config"
+	"context"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -45,6 +46,14 @@ func NewGormDB(config *config.Database, gormConfig *gorm.Config, isMigration ...
 
 func (g *GormDB) GetDB() *gorm.DB {
 	return g.db
+}
+
+func (g *GormDB) Ping(ctx context.Context) error {
+	sqlDB, err := g.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.PingContext(ctx)
 }
 
 func (g *GormDB) Close() error {

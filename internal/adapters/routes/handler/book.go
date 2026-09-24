@@ -2,10 +2,10 @@ package handler
 
 import (
 	"aprilpollo/internal/core/domain"
-	"aprilpollo/internal/pkg/query"
 	"aprilpollo/internal/core/ports/input"
+	"aprilpollo/internal/pkg/query"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type BookHandler struct {
@@ -17,7 +17,7 @@ func NewBookHandler(svc input.BookService) *BookHandler {
 }
 
 // GET /api/v1/books
-func (h *BookHandler) Gets(c *fiber.Ctx) error {
+func (h *BookHandler) Gets(c fiber.Ctx) error {
 	opts, err := query.Parse("books", c.Queries())
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
@@ -35,8 +35,11 @@ func (h *BookHandler) Gets(c *fiber.Ctx) error {
 }
 
 // GET /api/v1/books/:id
-func (h *BookHandler) GetByID(c *fiber.Ctx) error {
-	id := c.Params("id")
+func (h *BookHandler) GetByID(c fiber.Ctx) error {
+	id, err := bindID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
 
 	book, err := h.svc.GetByID(c.Context(), id)
 	if err != nil {
@@ -50,9 +53,9 @@ func (h *BookHandler) GetByID(c *fiber.Ctx) error {
 }
 
 // POST /api/v1/books
-func (h *BookHandler) Create(c *fiber.Ctx) error {
+func (h *BookHandler) Create(c fiber.Ctx) error {
 	var book domain.Book
-	if err := c.BodyParser(&book); err != nil {
+	if err := c.Bind().Body(&book); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -64,8 +67,11 @@ func (h *BookHandler) Create(c *fiber.Ctx) error {
 }
 
 // PUT /api/v1/books/:id
-func (h *BookHandler) Update(c *fiber.Ctx) error {
-	id := c.Params("id")
+func (h *BookHandler) Update(c fiber.Ctx) error {
+	id, err := bindID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
 
 	existing, err := h.svc.GetByID(c.Context(), id)
 	if err != nil {
@@ -75,7 +81,7 @@ func (h *BookHandler) Update(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "book not found"})
 	}
 
-	if err := c.BodyParser(existing); err != nil {
+	if err := c.Bind().Body(existing); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -87,8 +93,11 @@ func (h *BookHandler) Update(c *fiber.Ctx) error {
 }
 
 // DELETE /api/v1/books/:id
-func (h *BookHandler) Delete(c *fiber.Ctx) error {
-	id := c.Params("id")
+func (h *BookHandler) Delete(c fiber.Ctx) error {
+	id, err := bindID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
 
 	if err := h.svc.Delete(c.Context(), id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

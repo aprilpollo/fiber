@@ -35,6 +35,8 @@ type (
 		LogLevel                 string
 		Development              bool
 		TimeZone                 string
+		RateLimitMax             int
+		RateLimitWindowSeconds   int
 	}
 
 	JWT struct {
@@ -90,6 +92,8 @@ func GetConfig() (*Config, error) {
 		ShutdownTimeout:          getEnvAsUint("API_SHUTDOWN_TIMEOUT_SECONDS", 30),
 		AllowedCredentialOrigins: os.Getenv("ALLOWED_CREDENTIAL_ORIGINS"),
 		TimeZone:                 os.Getenv("TIME_ZONE"),
+		RateLimitMax:             getEnvAsInt("RATE_LIMIT_MAX", 100),
+		RateLimitWindowSeconds:   getEnvAsInt("RATE_LIMIT_WINDOW_SECONDS", 60),
 	}
 
 	jwt := &JWT{
