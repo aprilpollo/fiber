@@ -4,7 +4,7 @@ import (
 	"aprilpollo/internal/core/domain"
 	"aprilpollo/internal/core/ports/input"
 	"aprilpollo/internal/pkg/query"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type UserHandler struct {
@@ -16,7 +16,7 @@ func NewUserHandler(svc input.UserService) *UserHandler {
 }
 
 // GET /api/v1/users
-func (h *UserHandler) Gets(c *fiber.Ctx) error {
+func (h *UserHandler) Gets(c fiber.Ctx) error {
 	opts, err := query.Parse("users", c.Queries())
 	if err != nil {
 		return ResError(c, fiber.StatusBadRequest, "BAD_REQUEST", err.Error())
@@ -31,7 +31,7 @@ func (h *UserHandler) Gets(c *fiber.Ctx) error {
 }
 
 // GET /api/v1/users/:id
-func (h *UserHandler) GetByID(c *fiber.Ctx) error {
+func (h *UserHandler) GetByID(c fiber.Ctx) error {
 	id := c.Params("id")
 
 	user, err := h.svc.GetByID(c.Context(), id)
@@ -47,9 +47,9 @@ func (h *UserHandler) GetByID(c *fiber.Ctx) error {
 }
 
 // POST /api/v1/users
-func (h *UserHandler) Create(c *fiber.Ctx) error {
+func (h *UserHandler) Create(c fiber.Ctx) error {
 	var user domain.User
-	if err := c.BodyParser(&user); err != nil {
+	if err := c.Bind().Body(&user); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -61,7 +61,7 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 }
 
 // PUT /api/v1/users/:id
-func (h *UserHandler) Update(c *fiber.Ctx) error {
+func (h *UserHandler) Update(c fiber.Ctx) error {
 	id := c.Params("id")
 
 	existing, err := h.svc.GetByID(c.Context(), id)
@@ -72,7 +72,7 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "user not found"})
 	}
 
-	if err := c.BodyParser(existing); err != nil {
+	if err := c.Bind().Body(existing); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -84,7 +84,7 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 }
 
 // DELETE /api/v1/users/:id
-func (h *UserHandler) Delete(c *fiber.Ctx) error {
+func (h *UserHandler) Delete(c fiber.Ctx) error {
 	id := c.Params("id")
 
 	if err := h.svc.Delete(c.Context(), id); err != nil {

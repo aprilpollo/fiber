@@ -1,6 +1,6 @@
 # Fiber Hexagonal
 
-REST API built with **Go Fiber** and **Hexagonal Architecture** (Ports & Adapters)
+REST API built with **Go Fiber v3** and **Hexagonal Architecture** (Ports & Adapters)
 
 A clean, scalable, and maintainable REST API implementation following the hexagonal architecture pattern. This project demonstrates best practices for organizing Go code with clear separation of concerns.
 
@@ -47,7 +47,7 @@ This project implements **Hexagonal Architecture** (also known as Ports & Adapte
 ## Features
 
 - ✅ Clean hexagonal architecture
-- ✅ RESTful API with Fiber framework
+- ✅ RESTful API with Fiber v3 framework
 - ✅ GORM ORM for database operations
 - ✅ Redis caching support
 - ✅ Query filtering and pagination
@@ -58,7 +58,7 @@ This project implements **Hexagonal Architecture** (also known as Ports & Adapte
 
 ### Prerequisites
 
-- Go 1.18+
+- Go 1.26+
 - Docker & Docker Compose (optional)
 
 ### Installation

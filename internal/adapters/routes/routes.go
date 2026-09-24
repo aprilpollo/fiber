@@ -3,7 +3,7 @@ package routes
 import (
 	"aprilpollo/internal/adapters/routes/handler"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func RegisterUsersRoutes(app *fiber.App, h *handler.UserHandler) {
