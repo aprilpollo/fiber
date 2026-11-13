@@ -4,61 +4,103 @@ import (
 	"fmt"
 	"strings"
 
-	"aprilpollo/internal/pkg/query"
+	"aprilpollo/internal/core/domain"
 
 	"gorm.io/gorm"
 )
 
-// applyQuery chains filters, sort, limit, offset onto a *gorm.DB scope.
-// The caller is responsible for calling .Find(), .Scan(), etc. afterward.
-//
-// It lives here rather than in pkg/query so that package stays free of GORM:
-// the core imports pkg/query, and the core must not depend on infrastructure.
-//
-//	db := applyQuery(db.Model(&UserModel{}), opts)
-//	db.Find(&users)
-func applyQuery(db *gorm.DB, opts query.QueryOptions) *gorm.DB {
-	for _, f := range opts.Filters {
-		db = applyFilter(db, f)
+// columns maps a domain field name to the column that stores it. It is the
+// allowlist for filtering and sorting: a field missing here is refused before
+// any SQL is built, so a caller can neither probe the schema nor reach a column
+// the API does not expose.
+type columns map[string]string
+
+// listScopes turns a domain.ListQuery into GORM scopes. where narrows the rows
+// and is shared by the page query and the count, so total reflects the filters;
+// page adds order, limit and offset on top.
+func listScopes(q domain.ListQuery, cols columns) (where, page func(*gorm.DB) *gorm.DB, err error) {
+	type cond struct {
+		sql  string
+		args []any
+	}
+	conds := make([]cond, 0, len(q.Filters))
+	for _, f := range q.Filters {
+		col, ok := cols[f.Field]
+		if !ok {
+			return nil, nil, &domain.ValidationError{Field: f.Field, Message: "cannot be filtered on"}
+		}
+		sql, args, err := filterClause(col, f)
+		if err != nil {
+			return nil, nil, err
+		}
+		conds = append(conds, cond{sql, args})
 	}
 
-	if opts.Sort != "" {
-		order := opts.Sort
-		if strings.ToUpper(opts.Order) == "DESC" {
+	order := ""
+	if q.Sort != "" {
+		col, ok := cols[q.Sort]
+		if !ok {
+			return nil, nil, &domain.ValidationError{Field: q.Sort, Message: "cannot be sorted on"}
+		}
+		order = col
+		if q.Desc {
 			order += " DESC"
 		}
-		db = db.Order(order)
 	}
 
-	if opts.Limit > 0 {
-		db = db.Limit(opts.Limit)
+	where = func(db *gorm.DB) *gorm.DB {
+		for _, c := range conds {
+			db = db.Where(c.sql, c.args...)
+		}
+		return db
 	}
-	if opts.Offset > 0 {
-		db = db.Offset(opts.Offset)
+	page = func(db *gorm.DB) *gorm.DB {
+		if order != "" {
+			db = db.Order(order)
+		}
+		if q.Limit > 0 {
+			db = db.Limit(q.Limit)
+		}
+		if q.Offset > 0 {
+			db = db.Offset(q.Offset)
+		}
+		return db
 	}
-
-	return db
+	return where, page, nil
 }
 
-func applyFilter(db *gorm.DB, f query.Filter) *gorm.DB {
-	col := f.Field // already validated as a safe identifier by query.ParseFilters
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
-	switch f.Operator {
-	case "IS NULL":
-		return db.Where(fmt.Sprintf("%s IS NULL", col))
-
-	case "IS NOT NULL":
-		return db.Where(fmt.Sprintf("%s IS NOT NULL", col))
-
-	case "IN":
-		// GORM accepts slice natively with "IN ?"
-		return db.Where(fmt.Sprintf("%s IN ?", col), f.Value)
-
-	case "NOT IN":
-		return db.Where(fmt.Sprintf("%s NOT IN ?", col), f.Value)
-
-	default:
-		// "=", "!=", ">", ">=", "<", "<=", "LIKE"
-		return db.Where(fmt.Sprintf("%s %s ?", col, f.Operator), f.Value)
+// filterClause renders one filter as a parameterised condition on col.
+// col comes from the columns allowlist, never from the caller.
+func filterClause(col string, f domain.Filter) (string, []any, error) {
+	switch f.Op {
+	case domain.OpIsNull:
+		return col + " IS NULL", nil, nil
+	case domain.OpNotNull:
+		return col + " IS NOT NULL", nil, nil
+	case domain.OpIn, domain.OpNotIn:
+		vals, ok := f.Value.([]string)
+		if !ok || len(vals) == 0 {
+			return "", nil, &domain.ValidationError{Field: f.Field, Message: "needs at least one value"}
+		}
+		op := "IN"
+		if f.Op == domain.OpNotIn {
+			op = "NOT IN"
+		}
+		return fmt.Sprintf("%s %s ?", col, op), []any{vals}, nil
+	case domain.OpContains:
+		// Escape the wildcards so ?name_contains=50% matches a literal "50%".
+		return col + " LIKE ?", []any{"%" + likeEscaper.Replace(fmt.Sprint(f.Value)) + "%"}, nil
 	}
+
+	sqlOp, ok := map[domain.Operator]string{
+		domain.OpEq: "=", domain.OpNe: "!=",
+		domain.OpGt: ">", domain.OpGte: ">=",
+		domain.OpLt: "<", domain.OpLte: "<=",
+	}[f.Op]
+	if !ok {
+		return "", nil, &domain.ValidationError{Field: f.Field, Message: fmt.Sprintf("unsupported operator %q", f.Op)}
+	}
+	return fmt.Sprintf("%s %s ?", col, sqlOp), []any{f.Value}, nil
 }

@@ -1,6 +1,9 @@
 package handler
 
-import "github.com/gofiber/fiber/v3"
+import (
+	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
+)
 
 // idParam is the :id route param; the StructValidator rejects non-UUID values.
 type idParam struct {
@@ -8,10 +11,10 @@ type idParam struct {
 }
 
 // bindID binds and validates :id with Fiber v3's c.Bind().URI().
-func bindID(c fiber.Ctx) (string, error) {
+func bindID(c fiber.Ctx) (uuid.UUID, error) {
 	var p idParam
 	if err := c.Bind().URI(&p); err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
-	return p.ID, nil
+	return uuid.Parse(p.ID)
 }
