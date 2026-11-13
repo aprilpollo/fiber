@@ -9,44 +9,56 @@ A clean, scalable, and maintainable REST API implementation following the hexago
 ```
 fiber/
 ├── cmd/
-│   └── main.go              # Application entry point
+│   └── main.go                  # Composition root: builds adapters, injects them into the core
 ├── internal/
-│   ├── adapters/            # External interfaces (HTTP, Database, Cache)
-│   │   ├── config/          # Configuration management
-│   │   ├── routes/          # HTTP routes and handlers
-│   │   ├── storage/         # Database and cache adapters
-│   │   │   ├── cache/       # Redis cache
-│   │   │   ├── orm/         # GORM database
-│   │   │   └── repository/  # Data access layer
-│   ├── core/                # Business logic (isolated from frameworks)
-│   │   ├── domain/          # Entity definitions
-│   │   ├── ports/           # Interfaces (contracts)
-│   │   │   ├── input/       # Input ports (use cases)
-│   │   │   └── output/      # Output ports (repositories)
-│   │   └── services/        # Business services
-│   └── pkg/                 # Shared utilities (stdlib only — no framework/ORM)
-│       └── query/           # Query parsing and filtering
-├── docker/                  # Docker configuration
-├── script/                  # Utility scripts
-├── go.mod                   # Go module definition
-└── README.md               # This file
+│   ├── core/                    # The hexagon — stdlib + uuid only (enforced by core/arch_test.go)
+│   │   ├── domain/              # Entities, invariants, domain errors, ListQuery
+│   │   ├── ports/
+│   │   │   ├── input/           # Use-case interfaces + commands (CreateUser, UpdateUser…)
+│   │   │   └── output/          # Repository interfaces the core needs
+│   │   └── services/            # Use cases implementing the input ports
+│   └── adapters/                # Everything that talks to the outside world
+│       ├── config/              # Environment configuration
+│       ├── routes/              # HTTP input adapter (Fiber)
+│       │   ├── server.go        # App, middleware, health probes
+│       │   └── handler/         # Handlers, request/response DTOs, query-string parser, error → status
+│       └── storage/             # Output adapters
+│           ├── cache/           # Redis
+│           ├── orm/             # GORM connection + persistence models
+│           └── repository/      # Output-port implementations, SQL translation, error translation
+├── docker/                      # Docker configuration
+├── script/                      # Migration + seed
+└── go.mod
 ```
 
 ## Architecture
 
-This project implements **Hexagonal Architecture** (also known as Ports & Adapters):
+This project implements **Hexagonal Architecture** (Ports & Adapters). Dependencies
+point inward only: adapters import the core, the core imports nothing from adapters.
 
-- **Core**: Contains business logic and domain models (independent of frameworks)
-- **Ports**: Define interfaces for communication between layers
-  - **Input Ports**: Use cases/services
-  - **Output Ports**: Repository interfaces
-- **Adapters**: Implement concrete functionality
-  - **Incoming Adapters**: HTTP handlers
-  - **Outgoing Adapters**: Database, cache, external services
+```
+HTTP ──▶ handler (DTO → command) ──▶ input port ──▶ service ──▶ output port ──▶ repository ──▶ Postgres
+                 ◀── status code ◀── domain error ◀────────────────── translate(gorm/pg error)
+```
+
+- **Domain** (`core/domain`): entities with no `json`/`gorm`/`validate` tags. Invariants
+  (`NewUser`, `Validate`) live here, so every adapter gets the same rules. Failures are
+  `ErrNotFound`, `ErrConflict` and `*ValidationError` — never a driver error.
+- **Input ports** (`core/ports/input`): what the application can do, expressed in commands
+  (`CreateUser`, `UpdateUser` with optional fields) and typed IDs (`uuid.UUID`).
+- **Output ports** (`core/ports/output`): what the core needs from storage. Listing takes a
+  `domain.ListQuery` with abstract operators (`OpContains`, `OpIn`…), not SQL.
+- **Services** (`core/services`): orchestrate a use case — e.g. `Update` loads, applies only the
+  given fields, validates, then saves. Testable with an in-memory fake repository.
+- **HTTP adapter** (`adapters/routes`): binds requests into DTOs (the client can never set `id` or
+  timestamps), parses the query string, and maps domain errors to status codes. Unexpected
+  errors are logged and answered with a generic 500.
+- **Storage adapter** (`adapters/storage`): maps entities ↔ GORM models, domain operators ↔ SQL,
+  field names ↔ columns (an allowlist), and Postgres errors ↔ domain errors.
 
 ## Features
 
-- ✅ Clean hexagonal architecture
+- ✅ Hexagonal architecture, with a test that fails if the core imports an adapter
 - ✅ RESTful API with Fiber v3 framework
 - ✅ GORM ORM for database operations
 - ✅ Redis caching support
@@ -111,6 +123,14 @@ The API supports advanced filtering, sorting, and pagination through query param
 A malformed reserved parameter is rejected with `400 BAD_REQUEST` rather than
 silently falling back to its default — e.g. `?_limit=abc` or `?_limit=999999999`.
 
+Only fields the repository exposes can be filtered or sorted on — anything else is a
+`400 BAD_REQUEST` (`password: cannot be filtered on`):
+
+| Resource | Fields |
+|----------|--------|
+| `/api/v1/users` | `id`, `name`, `email`, `created_at`, `updated_at` |
+| `/api/v1/books` | `id`, `title`, `author`, `created_at`, `updated_at` |
+
 ### Filter Operators
 
 | Operator | Suffix | SQL | Example |
@@ -121,7 +141,7 @@ silently falling back to its default — e.g. `?_limit=abc` or `?_limit=99999999
 | Greater Than or Equal | `_gte` | `>=` | `age_gte=18` |
 | Less Than | `_lt` | `<` | `age_lt=65` |
 | Less Than or Equal | `_lte` | `<=` | `price_lte=100` |
-| Contains | `_contains` | `LIKE` | `name_contains=John` |
+| Contains | `_contains` | `LIKE` (wildcards in the value are matched literally) | `name_contains=John` |
 | In | `_in` | `IN` | `status_in=active,pending` |
 | Not In | `_nin` | `NOT IN` | `status_nin=deleted,archived` |
 | Is Null | `_null` | `IS NULL` | `deleted_at_null=true` |
@@ -129,56 +149,21 @@ silently falling back to its default — e.g. `?_limit=abc` or `?_limit=99999999
 
 ### Example Queries
 
-#### Basic Pagination
 ```bash
-# Get first 10 users
-GET /api/v1/users?_limit=10
-
-# Get users on page 2 (10 per page)
+# Page 2 of users, 10 per page
 GET /api/v1/users?_limit=10&_page=2
 
-# Get users with offset
-GET /api/v1/users?_limit=10&_offset=20
+# Users whose name contains "smith", newest first
+GET /api/v1/users?name_contains=smith&_sort=created_at&_order=DESC
+
+# Users with one of these emails
+GET /api/v1/users?email_in=alice@example.com,bob@example.com
+
+# Books by an author, sorted by title
+GET /api/v1/books?author_eq=Eric%20Evans&_sort=title
 ```
 
-#### Filtering
-```bash
-# Get active users
-GET /api/v1/users?status_eq=active
-
-# Get users older than 18
-GET /api/v1/users?age_gt=18
-
-# Get users with names containing "John"
-GET /api/v1/users?name_contains=John
-
-# Get users with status either 'active' or 'pending'
-GET /api/v1/users?status_in=active,pending
-
-# Get users without a deleted_at timestamp
-GET /api/v1/users?deleted_at_null=true
-```
-
-#### Sorting
-```bash
-# Sort by name ascending
-GET /api/v1/users?_sort=name&_order=ASC
-
-# Sort by created date descending
-GET /api/v1/users?_sort=created_at&_order=DESC
-```
-
-#### Combined Queries
-```bash
-# Get active users aged 18-65, sorted by name, page 1
-GET /api/v1/users?status_eq=active&age_gte=18&age_lte=65&_sort=name&_order=ASC&_limit=20&_page=1
-
-# Search books with price less than 50, sorted by price descending
-GET /api/v1/books?price_lt=50&_sort=price&_order=DESC&_limit=10
-
-# Get non-deleted users with names containing "smith"
-GET /api/v1/users?name_contains=smith&deleted_at_null=true&_limit=20
-```
+`pagination.total` counts the rows matching the filters, not the whole table.
 
 ### Response Format
 
@@ -190,9 +175,11 @@ GET /api/v1/users?name_contains=smith&deleted_at_null=true&_limit=20
   "error": null,
   "payload": [
     {
-      "id": 1,
+      "id": "3f1c2a9e-8d4b-4c1e-9f7a-2b6d5e8c1a40",
       "name": "John Doe",
-      "email": "john@example.com"
+      "email": "john@example.com",
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z"
     }
   ],
   "pagination": {
@@ -209,16 +196,31 @@ GET /api/v1/users?name_contains=smith&deleted_at_null=true&_limit=20
 {
   "code": 400,
   "message": "BAD_REQUEST",
-  "error": "Invalid filter parameter",
+  "error": "_limit: must be an integer, got \"abc\"",
   "payload": null
 }
 ```
+
+| Status | `message` | When |
+|--------|-----------|------|
+| 400 | `BAD_REQUEST` | Malformed body/params, failed validation, unknown filter field |
+| 404 | `NOT_FOUND` | No record with that id (GET, PUT, DELETE) |
+| 409 | `CONFLICT` | Unique value already taken (e.g. user email) |
+| 500 | `INTERNAL_SERVER_ERROR` | Anything unexpected — details go to the log, never the response |
+
+`PUT` updates only the fields present in the body.
 
 ## Development
 
 ### Running Tests
 ```bash
 go test ./...
+```
+
+Repository tests run against a real Postgres when `TEST_POSTGRES_URI` is set (they drop and
+recreate the `users`/`books` tables, so point it at a throwaway database):
+```bash
+TEST_POSTGRES_URI="postgres://aprilpollo:aprilpollo@localhost:5432/aprilpollo_test?sslmode=disable" go test ./internal/adapters/storage/repository
 ```
 
 ### Code Formatting

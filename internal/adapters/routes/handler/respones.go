@@ -1,17 +1,17 @@
 package handler
 
 import (
-	"aprilpollo/internal/pkg/query"
+	"aprilpollo/internal/core/domain"
 	"reflect"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-func ResOk(ctx fiber.Ctx, status int, payload any, total *int64, opts *query.QueryOptions) error {
-	if total != nil && opts != nil {
+func ResOk(ctx fiber.Ctx, status int, payload any, total *int64, q *domain.ListQuery) error {
+	if total != nil && q != nil {
 		page := uint(1)
-		if opts.Limit > 0 {
-			page = uint((opts.Offset / opts.Limit) + 1)
+		if q.Limit > 0 {
+			page = uint((q.Offset / q.Limit) + 1)
 		}
 
 		count := 0
@@ -28,7 +28,7 @@ func ResOk(ctx fiber.Ctx, status int, payload any, total *int64, opts *query.Que
 				"total": total,
 				"count": count,
 				"page":  page,
-				"limit": opts.Limit,
+				"limit": q.Limit,
 			},
 		}
 		return ctx.Status(status).JSON(rsp)
